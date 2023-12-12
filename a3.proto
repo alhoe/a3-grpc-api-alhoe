@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+service a3 {
+    rpc CreatePost(post) returns (id) {}
+
+    rpc CreateCommment(comment) returns (id) {}
+
+    rpc Upvote(id) returns (empty_message) {}
+
+    rpc Downvote(id) returns (empty_message) {}
+
+    rpc GetPostContent(id) returns (post) {}
+
+    rpc GetNComments(comment_request) returns (comment_list) {}
+}
+
+
+message id {int32 id = 1;}
+
+message empty_message {}
+
+message user {string username = 1;}
+
+message comment_request {
+    id id = 1;
+    int32 n = 2;
+}
+
+enum PostState {
+    normal = 0;
+    locked = 1;
+    hidden = 2;
+}
+
+message post {
+    string title = 1;
+    string text = 2;
+    oneof contents { string video_url = 3; string image_url = 4;}
+    optional user author = 5;
+    int32 score = 6;
+    PostState state = 7;
+    int32 publication_date = 8;
+    repeated id replies = 9;
+    id post_id = 10;
+}
+
+enum CommentState {
+    comment_normal = 0;
+    comment_hidden = 1;
+}
+
+message comment {
+    oneof parent {id post = 1; id comment = 2;}
+    user author = 3;
+    int32 score = 4;
+    CommentState state = 5;
+    int64 publication_date = 6;
+    string comment_text = 7;
+    repeated id replies = 8;
+    id comment_id = 10;
+}
+
+message comment_list{repeated comment_display comments = 1;}
+
+message comment_display{
+    comment root_comment = 1;
+    repeated comment replies = 2;
+    bool has_children = 3;
+    }
