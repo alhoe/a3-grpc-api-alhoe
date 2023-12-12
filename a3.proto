@@ -54,7 +54,7 @@ message comment {
     user author = 3;
     int32 score = 4;
     CommentState state = 5;
-    int64 publication_date = 6;
+    int32 publication_date = 6;
     string comment_text = 7;
     repeated id replies = 8;
     id comment_id = 10;

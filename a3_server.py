@@ -9,14 +9,9 @@ import datetime
 
 posts = dict()
 comments = dict()
-id_counter = 0
 
-def incr():
-    id_counter = 18
-    id_counter += 1
-    return id_counter
-
-def get_N_comments(i:int,n:int):
+def get_N_comments(i,n:int):
+    i = i.id
     if i in posts:
         post = posts[i]
         replies = post.replies
@@ -25,44 +20,61 @@ def get_N_comments(i:int,n:int):
         replies = comment.replies
     else:
         return None #This should never be called
-    replies.sort(key = (lambda x:comments[x].score),reverse=True)
+    replies.sort(key = (lambda x:comments[x.id].score),reverse=True)
     l = len(replies)
     if n>l: n = l
-    return [comments[reply] for reply in replies[n]]
+    return [comments[reply.id] for reply in replies[0:n]]
 
-class a3Servicer(a3_pb2_grpc.a3Servicer):
+class a3(a3_pb2_grpc.a3Servicer):
+    def __init__(self):
+        self.id_counter = 0
+
+    def incr(self):
+        self.id_counter += 1
+        return self.id_counter
+    
     def CreatePost(self, request, context):
-        post_id = incr()
-        newpost = a3_pb2.post(post_id=post_id,\
-                              score=0,\
-                                publication_date=100,\
-                                    replies=[],\
-                                        title=request.title,\
-                                            text=request.text,\
-                                            video_url=request.video_url,\
-                                            image_url=request.image_url,\
-                                            author=request.author,\
+        post_id = self.incr()
+        newpost = a3_pb2.post(title="First post",\
+                       text=request.text,\
+                        video_url=request.video_url,\
+                            image_url=request.image_url,\
+                                author=request.author,\
+                                    score=0,\
+                                        state=request.state,\
+                                            publication_date=100,\
+                                                replies=[],\
+                                                    post_id=a3_pb2.id(id=post_id)
                                             )
         posts.update({post_id:newpost})
         return a3_pb2.id(id=post_id)
 
     def CreateCommment(self, request, context):
-        request.score=0
-        request.publication_date = 100
-        request.replies = []
-        if request.parent in posts:
-            parent = posts[request.parent]
-            if parent.status == a3_pb2.PostState.locked: 
+        comment_id = self.incr()
+        newcomment = a3_pb2.comment(post=request.post,\
+                                    comment=request.comment,\
+                                        author=request.author,\
+                                            score=0,\
+                                                state=request.state,\
+                                                    publication_date=100,\
+                                                        comment_text=request.comment_text,\
+                                                            replies=[],\
+                                                                comment_id=a3_pb2.id(id=comment_id))
+        if request.post != None and request.post.id in posts:
+            parent = posts[request.post.id]
+            if parent.state == a3_pb2.PostState.locked: 
                 context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
                 context.set_details('Could not reply to locked post')
                 return a3_pb2.id()
-        elif request.id in comments:
-            parent = comments[request.id]
-            parent.has_children = True
+        elif request.comment != None and request.comment.id in comments:
+            parent = comments[request.comment.id]
             dummy = parent
             while not isinstance(dummy,a3_pb2.post):
-                dummy = dummy.parent
-            if dummy.status == a3_pb2.locked:
+                if dummy.post != None and dummy.post.id in posts:
+                    dummy = posts[dummy.post.id]
+                elif dummy.comment != None and dummy.comment.id in comments:
+                    dummy = comments[dummy.comment.id]
+            if dummy.state == a3_pb2.locked:
                 context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
                 context.set_details('Could not reply to locked comment')
                 return a3_pb2.id()
@@ -70,10 +82,8 @@ class a3Servicer(a3_pb2_grpc.a3Servicer):
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
             context.set_details('Could not find reply target')
             return a3_pb2.id()
-        comment_id = id_counter
-        id_counter += 1
-        parent.replies.append(comment_id)
-        comments.update({comment_id:request})
+        parent.replies.append(a3_pb2.id(id=comment_id))
+        comments.update({comment_id:newcomment})
         return a3_pb2.id(id=comment_id)
 
     def Upvote(self, request, context):
@@ -104,7 +114,7 @@ class a3Servicer(a3_pb2_grpc.a3Servicer):
 
     def GetPostContent(self, request, context):
         if request.id in posts:
-            return a3_pb2.post(posts[request.id])
+            return posts[request.id]
         else: 
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
             context.set_details("post does not exist")
@@ -115,6 +125,7 @@ class a3Servicer(a3_pb2_grpc.a3Servicer):
         n = request.n
         replies = get_N_comments(nid,n)
         response = []
+        nid = request.id.id
         if nid in posts:
             for reply in replies:
                 response.append(a3_pb2.comment_display(root_comment=reply,\
@@ -126,13 +137,13 @@ class a3Servicer(a3_pb2_grpc.a3Servicer):
                                                         replies=get_N_comments(reply.id,n)))    
         else:
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-            context.set_details('Could not find upvote target')
+            context.set_details(f'Could not find comment id {nid}')
         return a3_pb2.comment_list(comments=response)
     
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    a3_pb2_grpc.add_a3Servicer_to_server(a3Servicer(), server)
-    server.add_insecure_port("[::]:50051")
+    a3_pb2_grpc.add_a3Servicer_to_server(a3(), server)
+    server.add_insecure_port("localhost:50051")
     server.start()
     server.wait_for_termination()
 
