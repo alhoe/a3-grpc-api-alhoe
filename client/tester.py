@@ -2,7 +2,7 @@ import a3_pb2
 import high_level_function
 
 def test(client):
-
+    print("Starting Test")
     post = a3_pb2.post(title="First post",\
                        text="Nothing to see here",\
                         video_url=None,\
@@ -14,9 +14,12 @@ def test(client):
                                                 replies=None,\
                                                     post_id=None)
     p1 = client.CreatePost(post)
+    print("Post created")
     p1c1 = client.CreateCommment(a3_pb2.comment(post=p1,author=a3_pb2.user(username="Iam Thespy"),state=a3_pb2.CommentState.comment_normal,\
                                               comment_text="Nothing to see here"))
-    
+    print("Comment Created")
     p1c1r1 = client.CreateCommment(a3_pb2.comment(comment=p1c1,author=a3_pb2.user(username="Iam Thespy"),state=a3_pb2.CommentState.comment_normal,\
                                               comment_text="Something to see here"))
+    
+    print("Test setup complete")
     return high_level_function.high_level_function(client,p1)

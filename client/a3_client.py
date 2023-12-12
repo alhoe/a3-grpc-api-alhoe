@@ -14,6 +14,7 @@ def run():
     print("Will try to greet world ...")
     with grpc.insecure_channel("localhost:50051") as channel:
         stub = a3_pb2_grpc.a3Stub(channel)
+        print("Stub created")
         response = tester.test(stub)
     print(f"Top Reply under Top Comment: {response}" )
 

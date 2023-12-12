@@ -68,16 +68,6 @@ class a3(a3_pb2_grpc.a3Servicer):
                 return a3_pb2.id()
         elif request.comment != None and request.comment.id in comments:
             parent = comments[request.comment.id]
-            dummy = parent
-            while not isinstance(dummy,a3_pb2.post):
-                if dummy.post != None and dummy.post.id in posts:
-                    dummy = posts[dummy.post.id]
-                elif dummy.comment != None and dummy.comment.id in comments:
-                    dummy = comments[dummy.comment.id]
-            if dummy.state == a3_pb2.locked:
-                context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-                context.set_details('Could not reply to locked comment')
-                return a3_pb2.id()
         else:
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
             context.set_details('Could not find reply target')
@@ -134,7 +124,7 @@ class a3(a3_pb2_grpc.a3Servicer):
             for reply in replies:
                 response.append(a3_pb2.comment_display(root_comment=reply,\
                                                        has_children=(len(reply.replies)>0),\
-                                                        replies=get_N_comments(reply.id,n)))    
+                                                        replies=get_N_comments(reply.comment_id,n)))    
         else:
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
             context.set_details(f'Could not find comment id {nid}')
@@ -145,6 +135,7 @@ def serve():
     a3_pb2_grpc.add_a3Servicer_to_server(a3(), server)
     server.add_insecure_port("localhost:50051")
     server.start()
+    print("Server started, listening on " + "localhost:50051")
     server.wait_for_termination()
 
 if __name__ == "__main__":
